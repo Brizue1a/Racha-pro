@@ -2,191 +2,159 @@
 <html>
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Racha Pro</title>
-<link rel="manifest" href="manifest.json">
 </head>
 
-<body style="font-family: Arial; text-align:center; background:#111; color:white;">
+<body style="font-family: Arial; text-align:center; background:#111; color:white; max-width:500px; margin:auto;">
 
 <h1>🎮 Racha Pro</h1>
 
-<p>💵 Efectivo: ₡<span id="efectivo">0</span></p>
-<p>🏦 Ahorro: ₡<span id="ahorro">0</span></p>
+<h3 id="mensajeHora"></h3>
+
+<p>💵 ₡<span id="efectivo">0</span></p>
+<p>🔥 Racha: <span id="racha">0</span></p>
 <p>⭐ XP: <span id="xp">0</span></p>
-<p>🆙 Nivel: <span id="nivel">1</span></p>
-<p>❤️ Vidas: <span id="vidas">2</span></p>
 
-<h2 id="estado">Listo para jugar</h2>
+<h2 id="estado">Listo</h2>
 
 <hr>
 
-<button onclick="trabajar()">💼 Trabajar</button>
-<button onclick="ahorrar()">🏦 Guardar</button>
-<button onclick="gasto()">💸 Gasto</button>
-
-<button onclick="spawnMonstruo()">👾 Monstruo</button>
-<button onclick="pelear()">⚔️ Defender</button>
-<button onclick="ignorar()">😴 Ignorar</button>
+<h3>⏱️ Temporizador</h3>
+<p id="timer">00:00</p>
+<button onclick="iniciarTimer()">▶️ Trabajar</button>
+<button onclick="detenerTimer()">⏹️ Terminar</button>
 
 <hr>
 
-<h3>📜 Gastos</h3>
-<ul id="lista"></ul>
+<button onclick="menu()">⚙️ Menú</button>
 
 <script>
+
 // DATOS
 let data = JSON.parse(localStorage.getItem("data")) || {
   efectivo: 0,
-  ahorro: 0,
   xp: 0,
-  nivel: 1,
-  vidas: 2,
-  gastos: []
+  racha: 0,
+  ultimoDia: null
 };
 
-let monstruo = null;
-
 // GUARDAR
-function guardar() {
+function guardar(){
   localStorage.setItem("data", JSON.stringify(data));
 }
 
-// NIVEL
-function nivelCalc() {
-  if (data.xp > 10000) data.nivel = 5;
-  else if (data.xp > 5000) data.nivel = 4;
-  else if (data.xp > 2000) data.nivel = 3;
-  else if (data.xp > 500) data.nivel = 2;
-  else data.nivel = 1;
+// RELOJ / MENSAJE
+function revisarHora(){
+  let hora = new Date().getHours();
+  let msg = "";
+
+  if(hora < 10) msg = "🌅 Temprano, vas bien";
+  else if(hora < 14) msg = "😐 Ya deberías estar activo";
+  else if(hora < 18) msg = "⚠️ Vas tarde";
+  else msg = "💀 Muy tarde, reaccioná";
+
+  document.getElementById("mensajeHora").innerText = msg;
 }
 
-// TRABAJAR
-function trabajar() {
-  let g = prompt("¿Cuánto hiciste?");
-  if (!g) return;
+// DÍA REAL
+function revisarDia(){
+  let hoy = new Date().toDateString();
 
-  g = parseInt(g);
-  data.efectivo += g;
-  data.xp += g;
+  if(data.ultimoDia != hoy){
+    data.ultimoDia = hoy;
+    data.racha = 0; // reinicia si no hiciste nada
+  }
+}
 
-  nivelCalc();
+// TIMER
+let tiempo = 0;
+let intervalo = null;
+
+function iniciarTimer(){
+  if(intervalo) return;
+
+  intervalo = setInterval(()=>{
+    tiempo++;
+    let min = Math.floor(tiempo / 60);
+    let seg = tiempo % 60;
+
+    document.getElementById("timer").innerText =
+      (min<10?"0":"")+min + ":" + (seg<10?"0":"")+seg;
+  },1000);
+}
+
+function detenerTimer(){
+  clearInterval(intervalo);
+  intervalo = null;
+
+  let ganado = tiempo * 50;
+
+  data.efectivo += ganado;
+  data.xp += ganado;
+  data.racha++;
+
+  sonido();
+
+  alert("Ganaste ₡" + ganado);
+
+  tiempo = 0;
+  document.getElementById("timer").innerText = "00:00";
+
   guardar();
   actualizar();
 }
 
-// AHORRAR
-function ahorrar() {
-  let m = prompt("¿Cuánto guardar?");
-  if (!m) return;
-
-  m = parseInt(m);
-
-  if (m > data.efectivo) return alert("No alcanza");
-
-  data.efectivo -= m;
-  data.ahorro += m;
-
-  guardar();
-  actualizar();
+// SONIDO
+function sonido(){
+  let audio = new Audio("https://www.soundjay.com/buttons/sounds/button-16.mp3");
+  audio.play();
 }
 
-// GASTO
-function gasto() {
-  let nombre = prompt("¿En qué?");
-  let m = prompt("¿Cuánto?");
+// MENÚ
+function menu(){
+  let op = prompt(
+`⚙️ MENÚ
 
-  if (!nombre || !m) return;
+1. Día débil
+2. Corregir dinero
+3. Reset
 
-  m = parseInt(m);
+Número:`);
 
-  data.efectivo -= m;
-  if (data.efectivo < 0) data.efectivo = 0;
-
-  data.gastos.push({nombre, m});
-
-  guardar();
-  actualizar();
-}
-
-// MONSTRUO
-function spawnMonstruo() {
-  if (monstruo) return;
-
-  let daño = Math.floor(Math.random() * 5000 * data.nivel) + 2000;
-
-  monstruo = { daño };
-
-  document.getElementById("estado").innerText =
-    "👾 Gasto quiere ₡" + daño;
-}
-
-// PELEAR (trabajo real)
-function pelear() {
-  if (!monstruo) return;
-
-  let trabajar = confirm("¿Vas a trabajar para evitarlo?");
-  if (!trabajar) return;
-
-  let g = prompt("¿Cuánto hiciste?");
-  if (!g) return;
-
-  g = parseInt(g);
-
-  data.efectivo += g;
-  data.xp += g;
-
-  monstruo = null;
-
-  nivelCalc();
-  guardar();
-  actualizar();
-
-  document.getElementById("estado").innerText =
-    "🏆 Defendiste tu dinero";
-}
-
-// IGNORAR
-function ignorar() {
-  if (!monstruo) return;
-
-  data.efectivo -= monstruo.daño;
-  if (data.efectivo < 0) data.efectivo = 0;
-
-  data.vidas--;
-
-  if (data.vidas <= 0) {
-    data.vidas = 2;
-    alert("💀 Perdiste el control");
+  if(op=="1"){
+    data.efectivo += 2000;
+    data.racha++;
+    alert("🧠 Día débil guardado");
   }
 
-  monstruo = null;
+  if(op=="2"){
+    let m = parseInt(prompt("Monto"))||0;
+    data.efectivo += m;
+  }
+
+  if(op=="3"){
+    data.racha = 0;
+    data.xp = 0;
+    alert("Reset hecho");
+  }
 
   guardar();
   actualizar();
-
-  document.getElementById("estado").innerText =
-    "💀 Perdiste dinero";
 }
 
 // UI
-function actualizar() {
+function actualizar(){
   document.getElementById("efectivo").innerText = data.efectivo;
-  document.getElementById("ahorro").innerText = data.ahorro;
+  document.getElementById("racha").innerText = data.racha;
   document.getElementById("xp").innerText = data.xp;
-  document.getElementById("nivel").innerText = data.nivel;
-  document.getElementById("vidas").innerText = data.vidas;
-
-  let lista = document.getElementById("lista");
-  lista.innerHTML = "";
-
-  data.gastos.forEach(g => {
-    let li = document.createElement("li");
-    li.textContent = g.nombre + " ₡" + g.m;
-    lista.appendChild(li);
-  });
 }
 
+// INICIO
+revisarHora();
+revisarDia();
 actualizar();
+
 </script>
 
 </body>
